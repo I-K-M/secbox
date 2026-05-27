@@ -12,9 +12,15 @@ services:
 
     volumes:
       - ./work:/work
+      - ./labs:/labs
+      - ./scripts:/scripts
+      - ./wordlists:/wordlists
 
     cap_drop:
       - ALL
 
     security_opt:
       - no-new-privileges:true
+
+    tmpfs:
+      - /tmp
