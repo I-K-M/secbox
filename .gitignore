@@ -1,0 +1,6 @@
+work/
+wordlists/
+*.pcap
+*.log
+.env
+*.ovpn

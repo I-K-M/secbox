@@ -1,0 +1,20 @@
+services:
+
+  secbox:
+    build: ./toolbox
+
+    container_name: secbox
+
+    stdin_open: true
+    tty: true
+
+    working_dir: /work
+
+    volumes:
+      - ./work:/work
+
+    cap_drop:
+      - ALL
+
+    security_opt:
+      - no-new-privileges:true
