@@ -24,6 +24,7 @@ RUN apt update && apt upgrade -y && \
     netcat-openbsd \
     dnsutils \
     iputils-ping \
+    iproute2 \
     whois \
     nmap \
     tcpdump \
