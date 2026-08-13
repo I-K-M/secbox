@@ -1,4 +1,6 @@
 work/
+labs/
+scripts/local/
 wordlists/
 *.pcap
 *.log

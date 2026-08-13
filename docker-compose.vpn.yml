@@ -1,0 +1,8 @@
+services:
+  secbox:
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    volumes:
+      - ${OVPN_FILE:?Set OVPN_FILE to an absolute .ovpn path}:/vpn/client.ovpn:ro

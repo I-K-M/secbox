@@ -1,0 +1,13 @@
+.git
+.github
+work
+labs
+scripts
+wordlists
+specs
+tickets
+proofs
+*.pcap
+*.log
+*.ovpn
+.env
