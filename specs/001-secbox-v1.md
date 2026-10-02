@@ -25,7 +25,7 @@ The current image has useful basics but grants `SYS_ADMIN` and `NET_ADMIN`, maki
 
 ## Architecture
 
-Debian Bookworm provides stable packaged tools. A Go builder compiles four version-pinned tools; only their binaries enter the runtime image. Compose drops all capabilities, adds only `NET_RAW`, makes the root filesystem read-only and exposes four explicit workspace mounts. A separate override adds TUN and `NET_ADMIN` for VPN use.
+Debian Trixie provides stable packaged tools. A Go builder compiles four version-pinned tools; only their binaries enter the runtime image. Compose drops all capabilities, grants none by default, makes the root filesystem read-only and exposes four explicit workspace mounts. An explicit root raw profile adds `NET_RAW` and `DAC_OVERRIDE`; the root VPN profile additionally adds TUN and `NET_ADMIN`.
 
 ## Content and data
 
@@ -34,19 +34,19 @@ Assessment output lives in `work/`. Labs, scripts and wordlists are read-only. H
 ## Risks
 
 - Containers share the host kernel and are not equivalent to VMs.
-- Raw networking still exposes a narrow capability needed by scanners.
-- Debian packages are rebuilt from the current Bookworm repositories.
+- Root raw/VPN modes expose additional capabilities and may produce root-owned workspace files.
+- Debian packages are rebuilt from the current Trixie repositories.
 - Security tools may trigger endpoint or network controls.
 
 ## Acceptance criteria
 
-1. The default service runs as UID/GID 1000 and never as root.
+1. The default service runs as a configurable non-root UID/GID (1000 by default) and never as root.
 2. The default service has a read-only root, `no-new-privileges`, bounded processes, CPU and memory.
-3. The default service drops all capabilities and adds only `NET_RAW`.
+3. The default service drops all capabilities and grants none by default.
 4. `NET_ADMIN` and `/dev/net/tun` appear only in the VPN override.
 5. `secbox-check` verifies every documented bundled tool.
 6. Compose configuration validates and the image builds in CI.
-7. CI fails on fixed critical image vulnerabilities.
+7. CI fails on fixed HIGH/CRITICAL image vulnerabilities and verifies signed publication.
 
 ## Verification plan
 

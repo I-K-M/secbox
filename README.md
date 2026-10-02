@@ -1,10 +1,16 @@
 # Secbox
 
+**A hardened security toolbox with a verified DevSecOps delivery pipeline.**
+
 [![Security CI](https://github.com/I-K-M/secbox/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/I-K-M/secbox/actions/workflows/security.yml)
 
 A disposable CLI toolbox for authorised security labs and assessments. Runs in a restricted Docker container; project files stay in explicit workspace mounts.
 
 The repository demonstrates container hardening and a CI supply chain: native amd64/arm64 builds, runtime security tests, source and image scans, CycloneDX SBOMs and keyless image signing. It does not deploy infrastructure or require cloud credentials.
+
+## Verified delivery
+
+The [validated delivery](proofs/001-secbox-v1.md) records the tested commit, native architecture checks and immutable signed image digest. See the [security architecture](docs/architecture.md) for runtime and CI trust boundaries.
 
 ## Quick start
 

@@ -1,5 +1,7 @@
 # Secbox V2 — cross-platform professional toolbox specification
 
+> **Unimplemented proposal.** This historical catalogue proposal is not the current runtime contract. Follow the README and V1 specification for shipped behavior. The current default grants no capabilities; raw networking and VPN require explicit root profiles.
+
 ## Outcome
 
 Secbox runs consistently from Linux and Windows hosts and provides a curated, verified security assessment toolchain without becoming a full Kali Linux distribution.
