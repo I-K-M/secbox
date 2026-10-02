@@ -1,0 +1,10 @@
+# Effective raw-packet capabilities require root in this Docker profile.
+# Keep all other restrictions: this does not grant host root or privileged mode.
+services:
+  secbox:
+    user: "0:0"
+    cap_add:
+      # Root needs this to write the regular user's /work and ephemeral home.
+      # Read-only bind mounts still prohibit writes.
+      - DAC_OVERRIDE
+      - NET_RAW

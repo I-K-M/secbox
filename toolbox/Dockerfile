@@ -1,38 +1,61 @@
-FROM golang:1.24-bookworm AS go-tools
+FROM golang:1.27.1-trixie@sha256:3b77fc618ec235a1ab412de7737f120dd507c57e8d87de4cbb7994fb94275ed5 AS go-tools
 
-ENV CGO_ENABLED=0
+# Verify module source through the Go checksum database and prevent automatic
+# downloads of a different compiler by a dependency's toolchain directive.
+ENV CGO_ENABLED=0 GOTOOLCHAIN=local
 
-RUN go install github.com/ffuf/ffuf/v2@v2.1.0 \
-    && go install github.com/OJ/gobuster/v3@v3.6.0 \
-    && go install github.com/projectdiscovery/httpx/cmd/httpx@v1.6.10 \
-    && go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@v3.3.10
+# A shared, committed module graph upgrades vulnerable upstream transitive
+# dependencies. -mod=readonly prevents builds from changing that graph.
+WORKDIR /build
+COPY go.mod go.sum ./
+RUN go mod download \
+    && go install -mod=readonly -trimpath github.com/ffuf/ffuf/v2 \
+    && go install -mod=readonly -trimpath github.com/OJ/gobuster/v3 \
+    && go install -mod=readonly -trimpath github.com/projectdiscovery/httpx/cmd/httpx \
+    && go install -mod=readonly -trimpath github.com/projectdiscovery/nuclei/v3/cmd/nuclei
 
-FROM debian:bookworm-slim
+# Nikto is not in Debian's main repository. Fetch a reviewed release at an
+# immutable commit instead of enabling extra package repositories.
+RUN git init /nikto \
+    && git -C /nikto remote add origin https://github.com/sullo/nikto.git \
+    && git -C /nikto fetch --depth=1 origin d201dac320fc5187eac75e723dd07a716196ec5a \
+    && git -C /nikto checkout --detach FETCH_HEAD \
+    && rm -rf /nikto/.git \
+    && cp /nikto/program/nikto.conf.default /nikto/program/nikto.conf \
+    && sed -i 's/^UPDATES=yes/UPDATES=no/' /nikto/program/nikto.conf
 
-ARG DEBIAN_FRONTEND=noninteractive
+FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+
+LABEL org.opencontainers.image.title="Secbox" \
+      org.opencontainers.image.description="Disposable security assessment toolbox" \
+      org.opencontainers.image.source="https://github.com/I-K-M/secbox" \
+      org.opencontainers.image.url="https://github.com/I-K-M/secbox"
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         bash ca-certificates curl wget git jq ripgrep file less vim-tiny tmux \
         python3 python3-pip python3-venv pipx \
         nmap netcat-openbsd socat dnsutils whois iputils-ping iproute2 \
         tcpdump tshark masscan traceroute openvpn \
-        sqlmap nikto whatweb hydra john hashcat \
-        yara exiftool binwalk openssl \
+        sqlmap whatweb hydra john hashcat \
+        yara exiftool binwalk openssl perl libnet-ssleay-perl liburi-perl libxml-writer-perl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=go-tools /go/bin/ffuf /usr/local/bin/ffuf
-COPY --from=go-tools /go/bin/gobuster /usr/local/bin/gobuster
-COPY --from=go-tools /go/bin/httpx /usr/local/bin/httpx
-COPY --from=go-tools /go/bin/nuclei /usr/local/bin/nuclei
+COPY --from=go-tools /go/bin/ /usr/local/bin/
+COPY --from=go-tools /nikto/program/ /opt/nikto/
+COPY nikto.sh /usr/local/bin/nikto
 COPY tools-check.sh /usr/local/bin/secbox-check
 
 RUN useradd --create-home --uid 1000 --shell /bin/bash secbox \
-    && chmod 0755 /usr/local/bin/secbox-check
+    && mkdir -p /work /labs /scripts /wordlists \
+    && chown secbox:secbox /work \
+    && chmod 0755 /usr/local/bin/secbox-check /usr/local/bin/nikto \
+    && find / -xdev -type f -perm /6000 -exec chmod a-s {} +
 
 USER 1000:1000
 ENV HOME=/home/secbox \
-    PATH=/home/secbox/.local/bin:/usr/local/bin:/usr/bin:/bin \
+    PATH=/home/secbox/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin \
     PIPX_HOME=/home/secbox/.local/pipx \
     PIPX_BIN_DIR=/home/secbox/.local/bin
 

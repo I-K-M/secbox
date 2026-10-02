@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /toolbox
+    schedule:
+      interval: weekly
+    groups:
+      toolchain:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: docker
+    directory: /toolbox
+    schedule:
+      interval: weekly
+    groups:
+      base-images:
+        patterns: ["*"]
