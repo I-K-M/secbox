@@ -54,6 +54,13 @@ if profile == "vpn":
         os.close(tun)
 
 class Handler(http.server.BaseHTTPRequestHandler):
+    def handle(self):
+        try:
+            super().handle()
+        except (ConnectionResetError, BrokenPipeError):
+            # Port scanners intentionally connect and close without HTTP.
+            pass
+
     def do_GET(self):
         self.send_response(200 if self.path in ["/", "/probe"] else 404)
         self.end_headers()
@@ -93,7 +100,8 @@ with http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
              "--no-progress", "--quiet"],
             check=True, capture_output=True, text=True, timeout=30,
         ).stdout
-        assert "/probe" in output and "/missing" not in output, output
+        paths = [line.split()[0].lstrip("/") for line in output.splitlines() if line.strip()]
+        assert paths == ["probe"], output
     server.shutdown()
 
 print(f"{profile}: capabilities, mounts, user and local Nmap/httpx/ffuf/Gobuster checks passed")
