@@ -4,4 +4,7 @@ services:
   secbox:
     user: "0:0"
     cap_add:
+      # Root needs this to write the regular user's /work and ephemeral home.
+      # Read-only bind mounts still prohibit writes.
+      - DAC_OVERRIDE
       - NET_RAW

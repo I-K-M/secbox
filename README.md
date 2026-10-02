@@ -48,12 +48,12 @@ The Docker Compose commands are identical. Windows/macOS use the default contain
 | Profile | User | Capabilities | Use |
 |---|---|---|---|
 | Default | Non-root | None | Web tools, TCP connect scans, offline analysis |
-| Raw | Container root | `NET_RAW` | SYN scans and packet capture inside the container network |
-| VPN | Container root | `NET_RAW`, `NET_ADMIN` | OpenVPN and raw networking inside the VPN |
+| Raw | Container root | `NET_RAW`, `DAC_OVERRIDE` | SYN scans and packet capture inside the container network |
+| VPN | Container root | `NET_RAW`, `NET_ADMIN`, `DAC_OVERRIDE` | OpenVPN and raw networking inside the VPN |
 
 All profiles retain a read-only root filesystem, `no-new-privileges`, a private bridge network, and CPU/memory/process limits. They do not mount the Docker socket or use host networking. Setuid/setgid bits are removed from the image.
 
-The root modes are explicit exceptions. Adding `NET_RAW` to a non-root Compose service does not reliably provide effective raw-socket permissions; file capabilities cannot fix that under `no-new-privileges`. The runtime tests exercise actual socket creation and TUN creation rather than checking YAML alone.
+The root modes are explicit exceptions. Adding `NET_RAW` to a non-root Compose service does not reliably provide effective raw-socket permissions; file capabilities cannot fix that under `no-new-privileges`. `DAC_OVERRIDE` lets these root modes write the regular user's workspace and ephemeral home; read-only mounts remain protected. The runtime tests exercise actual socket creation and TUN creation rather than checking YAML alone.
 
 Docker shares the host kernel. Use a dedicated VM for hostile samples or kernel exploit work. This toolbox is not a malware sandbox.
 

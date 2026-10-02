@@ -13,7 +13,7 @@ import xml.etree.ElementTree as ET
 
 profile = sys.argv[1]
 status = dict(line.split(":", 1) for line in Path("/proc/self/status").read_text().splitlines() if ":" in line)
-expected_caps = {"default": 0, "raw": 1 << 13, "vpn": (1 << 13) | (1 << 12)}[profile]
+expected_caps = {"default": 0, "raw": (1 << 1) | (1 << 13), "vpn": (1 << 1) | (1 << 13) | (1 << 12)}[profile]
 assert int(status["CapEff"].strip(), 16) == expected_caps, status["CapEff"]
 assert int(status["CapBnd"].strip(), 16) == expected_caps, status["CapBnd"]
 assert status["NoNewPrivs"].strip() == "1", "Privilege escalation is permitted"

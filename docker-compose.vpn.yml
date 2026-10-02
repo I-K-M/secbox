@@ -2,6 +2,7 @@ services:
   secbox:
     user: "0:0"
     cap_add:
+      - DAC_OVERRIDE
       - NET_RAW
       - NET_ADMIN
     devices:
