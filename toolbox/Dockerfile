@@ -34,7 +34,7 @@ RUN apt-get update \
         nmap netcat-openbsd socat dnsutils whois iputils-ping iproute2 \
         tcpdump tshark masscan traceroute openvpn \
         sqlmap whatweb hydra john hashcat \
-        yara exiftool binwalk openssl perl libnet-ssleay-perl liburi-perl \
+        yara exiftool binwalk openssl perl libnet-ssleay-perl liburi-perl libxml-writer-perl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=go-tools /go/bin/ /usr/local/bin/

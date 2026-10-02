@@ -81,6 +81,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Build reviewed source
+        id: build
         run: |
           mkdir -p reports
           docker build --pull --no-cache --label "org.opencontainers.image.revision=$GITHUB_SHA" --tag secbox:ci ./toolbox
@@ -93,6 +94,8 @@ jobs:
           if [ ! -e /dev/net/tun ]; then sudo mknod /dev/net/tun c 10 200; fi
           sh tests/runtime.sh
       - name: Inventory image vulnerabilities
+        id: scan
+        if: ${{ always() && steps.build.outcome == 'success' }}
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           version: v0.75.0
@@ -104,6 +107,7 @@ jobs:
           cache-dir: ${{ runner.temp }}/trivy
           timeout: 15m
       - name: Generate SBOM and enforce image policy
+        if: ${{ always() && steps.scan.outcome == 'success' }}
         env:
           TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy
         run: |
