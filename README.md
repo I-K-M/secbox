@@ -101,7 +101,7 @@ Inside the container, run `openvpn --config /vpn/client.ovpn`. Or use `make vpn 
 
 `secbox-check` checks every listed executable and launches representative tools to catch missing libraries and architecture errors. GPU passthrough and headless browser dependencies are not bundled.
 
-Go tools are compiled from pinned upstream versions using a pinned compiler image. Nikto uses release 2.6.1 at commit `d201dac320fc5187eac75e723dd07a716196ec5a`. Debian packages come from the current Trixie repositories at build time. Base image manifests are pinned by digest and reviewed through Dependabot.
+Go tools are compiled from pinned upstream versions using a pinned compiler image and a shared, locked `go.mod`/`go.sum` graph. This graph upgrades vulnerable upstream transitive dependencies; the binaries therefore include reviewed dependency patches beyond their upstream releases. The HTTP smoke tests exercise those builds. Nikto uses release 2.6.1 at commit `d201dac320fc5187eac75e723dd07a716196ec5a`. Debian packages come from the current Trixie repositories at build time. Base images, Go modules and action pins are reviewed through Dependabot.
 
 ### Wordlists and templates
 

@@ -28,7 +28,7 @@ with issuer `https://token.actions.githubusercontent.com`. A valid signature pro
 
 Image reports include unfixed and lower-severity findings. The blocking gate uses `--ignore-unfixed` only because upstream Debian components may not yet offer a patch; it is not a blanket statement that such vulnerabilities are acceptable. Review those findings when selecting tools and using the image. No vulnerability allowlist or `continue-on-error` is used.
 
-Go dependency scanning reads embedded module versions from the compiled binaries. This repository has no application dependency manifest to review, so an application SAST/Dependency Review job would not replace that scan. Adding application code requires adding the corresponding language checks.
+Go dependency scanning checks the locked toolchain manifest and the embedded module versions in compiled binaries. `toolbox/go.mod` uses Go tool declarations and shared minimum-version selection to patch vulnerable upstream transitive dependencies; `go.sum` verifies module source and builds use `-mod=readonly`. Dependabot proposes updates. This repository has no application code requiring application SAST; adding application code requires the corresponding language checks.
 
 ## Verify a platform SBOM
 

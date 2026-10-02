@@ -19,7 +19,7 @@ fi
 for command in \
   'nmap --version' 'tshark --version' 'hashcat --version' \
   'sqlmap --version' 'nikto -Version' 'whatweb --version' \
-  'binwalk --help' 'ffuf -V' 'gobuster version' \
+  'binwalk --help' 'ffuf -V' 'gobuster --version' \
   'httpx -version -duc' 'nuclei -version -duc'; do
   printf 'Checking %s\n' "$command"
   # Intentional word splitting: every command above is a trusted literal.

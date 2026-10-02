@@ -1,5 +1,12 @@
 version: 2
 updates:
+  - package-ecosystem: gomod
+    directory: /toolbox
+    schedule:
+      interval: weekly
+    groups:
+      toolchain:
+        patterns: ["*"]
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -8,6 +8,7 @@ import socket
 import struct
 import subprocess
 import sys
+import tempfile
 import threading
 import xml.etree.ElementTree as ET
 
@@ -54,7 +55,7 @@ if profile == "vpn":
 
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
+        self.send_response(200 if self.path in ["/", "/probe"] else 404)
         self.end_headers()
         self.wfile.write(b"secbox-local-test")
 
@@ -74,6 +75,25 @@ with http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
         check=True, capture_output=True, text=True, timeout=30,
     ).stdout
     assert f"127.0.0.1:{port}" in output, output
+    # Exercise updated shared Go dependencies through real HTTP tool behaviour.
+    with tempfile.TemporaryDirectory() as directory:
+        wordlist = Path(directory) / "words.txt"
+        wordlist.write_text("probe\nmissing\n")
+        report = Path(directory) / "ffuf.json"
+        subprocess.run(
+            ["ffuf", "-u", f"http://127.0.0.1:{port}/FUZZ", "-w", str(wordlist),
+             "-mc", "200", "-noninteractive", "-s", "-of", "json", "-o", str(report)],
+            check=True, capture_output=True, text=True, timeout=30,
+        )
+        import json
+        matches = json.loads(report.read_text())["results"]
+        assert len(matches) == 1 and matches[0]["url"].endswith("/probe"), matches
+        output = subprocess.run(
+            ["gobuster", "dir", "-u", f"http://127.0.0.1:{port}", "-w", str(wordlist),
+             "--no-progress", "--quiet"],
+            check=True, capture_output=True, text=True, timeout=30,
+        ).stdout
+        assert "/probe" in output and "/missing" not in output, output
     server.shutdown()
 
-print(f"{profile}: capabilities, mounts, user, local Nmap and httpx checks passed")
+print(f"{profile}: capabilities, mounts, user and local Nmap/httpx/ffuf/Gobuster checks passed")

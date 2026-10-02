@@ -4,10 +4,15 @@ FROM golang:1.27.1-trixie@sha256:3b77fc618ec235a1ab412de7737f120dd507c57e8d87de4
 # downloads of a different compiler by a dependency's toolchain directive.
 ENV CGO_ENABLED=0 GOTOOLCHAIN=local
 
-RUN go install -trimpath github.com/ffuf/ffuf/v2@v2.3.0 \
-    && go install -trimpath github.com/OJ/gobuster/v3@v3.8.2 \
-    && go install -trimpath github.com/projectdiscovery/httpx/cmd/httpx@v1.12.0 \
-    && go install -trimpath github.com/projectdiscovery/nuclei/v3/cmd/nuclei@v3.11.1
+# A shared, committed module graph upgrades vulnerable upstream transitive
+# dependencies. -mod=readonly prevents builds from changing that graph.
+WORKDIR /build
+COPY go.mod go.sum ./
+RUN go mod download \
+    && go install -mod=readonly -trimpath github.com/ffuf/ffuf/v2 \
+    && go install -mod=readonly -trimpath github.com/OJ/gobuster/v3 \
+    && go install -mod=readonly -trimpath github.com/projectdiscovery/httpx/cmd/httpx \
+    && go install -mod=readonly -trimpath github.com/projectdiscovery/nuclei/v3/cmd/nuclei
 
 # Nikto is not in Debian's main repository. Fetch a reviewed release at an
 # immutable commit instead of enabling extra package repositories.
