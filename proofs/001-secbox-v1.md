@@ -1,45 +1,31 @@
-# Secbox V1 proof pack
+# Secbox validated delivery
 
-## Summary
+Validated on 2026-10-02. This record describes a completed build, not a guarantee about later commits or vulnerability databases.
 
-Replaced the broad-capability prototype with a least-privilege, non-root toolbox and an explicit VPN override.
+## Source and execution evidence
 
-## Links
+- Reviewed change: [PR #1](https://github.com/I-K-M/secbox/pull/1).
+- Merged commit: `c72b78f18688bb039e3f35204d1523f2880cc0a6`.
+- [Main workflow run](https://github.com/I-K-M/secbox/actions/runs/36997976810): all required checks and signed publication passed.
+- Signed multi-platform image: `ghcr.io/i-k-m/secbox@sha256:daa3be5de21a63b32043ed4d3ce7d9ca2407bc1dbd97e99299d1d43f80887a5f`.
 
-- Spec: `specs/001-secbox-v1.md`
-- Ticket: `tickets/001-secbox-v1/001-harden-and-package.md`
+## Verified behavior
 
-## Changed behavior
+| Boundary | Actual check |
+|---|---|
+| Default user and permissions | Non-root, no effective/bounding capabilities, no-new-privileges |
+| Filesystem | Protected paths reject writes; workspace, home and temporary paths allow writes |
+| Raw networking | Raw socket denied by default and allowed only in opt-in profiles |
+| VPN | Configuration mounted read-only and TUN interface creation succeeds |
+| Toolchain | Executable checks, representative commands, local Nmap/httpx/ffuf/Gobuster HTTP smoke tests |
+| Architectures | Native Linux amd64 and arm64 builds and runtime tests |
+| Vulnerabilities | Full reports retained; fixable HIGH/CRITICAL findings block delivery |
+| Supply chain | Both platform signatures and CycloneDX attestations verified; multi-platform index signature verified |
 
-- Default capability set changed from `NET_ADMIN` plus `SYS_ADMIN` to `NET_RAW` only.
-- Root filesystem is now read-only and resources are bounded.
-- Tools are grouped into a reproducible multi-stage image with a smoke test.
-- VPN privileges are isolated in an explicit override.
-- CI now validates, builds, tests and scans the image.
+The run retains `source-scan`, `image-reports-*` and `signature-evidence` artifacts for the periods documented in [CI policy](../docs/ci.md). Artifact retention is finite; the immutable digest and source/run links are recorded here for traceability.
 
-## Commands and results
+## Limits and rollback
 
-- Static capability assertions passed: no `SYS_ADMIN` or `NET_ADMIN` in the default profile; `NET_ADMIN` and TUN occur only in the VPN override.
-- Shell syntax, Make command expansion and `git diff --check` passed.
-- All four pinned Go release tags were verified against their upstream repositories.
-- Docker runtime validation was unavailable in the publishing environment (`docker: command not found`); GitHub Actions performs Compose validation, the full image build, tool smoke test and Trivy scan on `main`.
+Tests use a loopback fixture and create TUN without contacting a VPN server. They do not certify external routing, DNS integration, every tool feature, Windows host behavior or a malware isolation boundary. Anonymous GHCR access and repository protection are administrator settings, not verified runtime controls.
 
-## Review
-
-Cold review checks privilege boundaries, mount access, version pinning, documentation accuracy and rollback behavior.
-
-## Migrations and environment
-
-No data migration. Docker Compose v2 and Make are required. Existing ignored workspace data remains local.
-
-## Known limitations
-
-Docker is not a VM boundary. Wordlists and templates are not bundled. VPN client choice remains lab-specific.
-
-## Rollback
-
-Revert the V1 commit. Workspace data under `work/` remains untouched.
-
-## Human checks
-
-Confirm authorised target scope before every assessment and test VPN routing against a lab endpoint before use.
+To roll back, select a previously verified image digest and compatible Compose revision. Reverting code does not remove published images or change existing workspace data. Scan an older image again before using it.
