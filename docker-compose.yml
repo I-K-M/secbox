@@ -4,18 +4,15 @@ services:
   secbox:
     build:
       context: ./toolbox
-    image: secbox:local
-    container_name: secbox
+    image: ${SECBOX_IMAGE:-secbox:local}
     init: true
     stdin_open: true
     tty: true
-    user: "1000:1000"
+    user: "${SECBOX_UID:-1000}:${SECBOX_GID:-1000}"
     working_dir: /work
     read_only: true
     cap_drop:
       - ALL
-    cap_add:
-      - NET_RAW
     security_opt:
       - no-new-privileges:true
     pids_limit: 512
@@ -23,12 +20,31 @@ services:
     cpus: 2.0
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=512m,mode=1777
-      - /home/secbox:rw,nosuid,nodev,size=256m,uid=1000,gid=1000,mode=0700
+      - /home/secbox:rw,nosuid,nodev,size=256m,uid=${SECBOX_UID:-1000},gid=${SECBOX_GID:-1000},mode=0700
     volumes:
-      - ./work:/work:rw
-      - ./labs:/labs:ro
-      - ./scripts:/scripts:ro
-      - ./wordlists:/wordlists:ro
+      - type: bind
+        source: ./work
+        target: /work
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./labs
+        target: /labs
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./scripts
+        target: /scripts
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./wordlists
+        target: /wordlists
+        read_only: true
+        bind:
+          create_host_path: false
     networks:
       - secbox-net
     restart: "no"

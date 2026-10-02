@@ -1,0 +1,6 @@
+# Only these reviewed inputs enter the actual Docker build context.
+*
+!Dockerfile
+!.dockerignore
+!tools-check.sh
+!nikto.sh

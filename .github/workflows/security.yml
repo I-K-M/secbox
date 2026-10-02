@@ -1,4 +1,4 @@
-name: Build and security scan
+name: Security CI
 
 on:
   push:
@@ -11,23 +11,198 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: secbox-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  validate:
-    runs-on: ubuntu-latest
+  source:
+    name: Source and workflow checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Validate Compose
-        run: docker compose config --quiet
-      - name: Build image
-        run: docker build --tag secbox:ci ./toolbox
-      - name: Check installed tools
-        run: docker run --rm --read-only --cap-drop ALL --tmpfs /tmp secbox:ci secbox-check
-      - name: Scan image
-        uses: aquasecurity/trivy-action@0.28.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          image-ref: secbox:ci
-          format: table
+          persist-credentials: false
+      - name: Lint shell and workflows
+        run: |
+          sh scripts/install-ci-tools.sh "$RUNNER_TEMP/secbox-tools"
+          "$RUNNER_TEMP/secbox-tools/shellcheck" toolbox/*.sh scripts/*.sh tests/*.sh
+          "$RUNNER_TEMP/secbox-tools/actionlint" -shellcheck "$RUNNER_TEMP/secbox-tools/shellcheck"
+      - name: Check Compose profiles
+        run: |
+          mkdir -p work labs scripts wordlists reports
+          docker compose config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.raw.yml config --quiet
+          OVPN_FILE="$RUNNER_TEMP/client.ovpn" docker compose -f docker-compose.yml -f docker-compose.vpn.yml config --quiet
+      - name: Scan repository for secrets and misconfiguration
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
           exit-code: "1"
-          severity: CRITICAL
-          ignore-unfixed: true
+          format: json
+          output: reports/source.json
+          skip-dirs: .git,work,labs,wordlists,reports
+          cache-dir: ${{ runner.temp }}/trivy
+      - name: Retain source scan
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: source-scan
+          path: reports/source.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  image:
+    name: Image (${{ matrix.arch }})
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    env:
+      SECBOX_IMAGE: secbox:ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build reviewed source
+        run: |
+          mkdir -p reports
+          docker build --pull --no-cache --label "org.opencontainers.image.revision=$GITHUB_SHA" --tag secbox:ci ./toolbox
+      - name: Test toolchain and security boundaries
+        run: |
+          SECBOX_UID=$(id -u)
+          SECBOX_GID=$(id -g)
+          export SECBOX_UID SECBOX_GID
+          sudo mkdir -p /dev/net
+          if [ ! -e /dev/net/tun ]; then sudo mknod /dev/net/tun c 10 200; fi
+          sh tests/runtime.sh
+      - name: Inventory image vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          image-ref: secbox:ci
+          scanners: vuln
+          format: json
+          output: reports/image.json
+          exit-code: "0"
+          cache-dir: ${{ runner.temp }}/trivy
+          timeout: 15m
+      - name: Generate SBOM and enforce image policy
+        env:
+          TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy
+        run: |
+          trivy image --skip-db-update --format cyclonedx --output reports/sbom.cdx.json secbox:ci
+          trivy image --skip-db-update --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 secbox:ci
+      - name: Retain complete inventory and SBOM
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: image-reports-${{ matrix.arch }}
+          path: reports/
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Export tested image for publication
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: |
+          mkdir -p release
+          docker save secbox:ci | gzip -1 > release/image.tar.gz
+          cp reports/sbom.cdx.json release/sbom.cdx.json
+          (cd release && sha256sum image.tar.gz sbom.cdx.json > SHA256SUMS)
+      - name: Transfer tested artifact
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: secbox-image-${{ matrix.arch }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
+
+  ci:
+    name: CI passed
+    if: ${{ always() }}
+    needs: [source, image]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every check
+        env:
+          SOURCE_RESULT: ${{ needs.source.result }}
+          IMAGE_RESULT: ${{ needs.image.result }}
+        run: test "$SOURCE_RESULT" = success && test "$IMAGE_RESULT" = success
+
+  publish:
+    name: Publish and verify signed image
+    needs: ci
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'I-K-M/secbox' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      # No checkout and no execution of repository code in the privileged job.
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: secbox-image-*
+          path: artifacts
+          digest-mismatch: error
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3
+      - name: Publish exact tested images, sign and verify
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          identity="https://github.com/I-K-M/secbox/.github/workflows/security.yml@refs/heads/main"
+          issuer="https://token.actions.githubusercontent.com"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          trap 'docker logout ghcr.io' EXIT
+          mkdir -p evidence
+          refs=()
+          for arch in amd64 arm64; do
+            directory="artifacts/secbox-image-$arch"
+            (cd "$directory" && sha256sum --check SHA256SUMS)
+            docker load --input "$directory/image.tar.gz"
+            docker tag secbox:ci "$image:sha-$GITHUB_SHA-$arch"
+            docker push "$image:sha-$GITHUB_SHA-$arch"
+            digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image:sha-$GITHUB_SHA-$arch")
+            refs+=("$digest")
+            cosign sign --yes "$digest"
+            cosign attest --yes --type cyclonedx --predicate "$directory/sbom.cdx.json" "$digest"
+            cosign verify --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "$digest" > "evidence/$arch-signature.json"
+            cosign verify-attestation --type cyclonedx --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "$digest" > "evidence/$arch-sbom.json"
+          done
+          docker buildx imagetools create --tag "$image:sha-$GITHUB_SHA" "${refs[@]}"
+          digest=$(docker buildx imagetools inspect "$image:sha-$GITHUB_SHA" --format '{{.Manifest.Digest}}')
+          reference="$image@$digest"
+          cosign sign --yes "$reference"
+          cosign verify --certificate-identity "$identity" --certificate-oidc-issuer "$issuer" "$reference" > evidence/index-signature.json
+          printf '%s\n' "$reference" > evidence/image.txt
+          printf 'Verified image: %s\n' "$reference" >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain verification evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: signature-evidence
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 90

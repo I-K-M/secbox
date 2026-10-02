@@ -6,3 +6,8 @@ wordlists/
 *.log
 .env
 *.ovpn
+*.key
+*.pem
+reports/
+.cache/
+__pycache__/

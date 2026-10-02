@@ -1,8 +1,15 @@
 services:
   secbox:
+    user: "0:0"
     cap_add:
+      - NET_RAW
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
     volumes:
-      - ${OVPN_FILE:?Set OVPN_FILE to an absolute .ovpn path}:/vpn/client.ovpn:ro
+      - type: bind
+        source: ${OVPN_FILE:?Set OVPN_FILE to an absolute .ovpn path}
+        target: /vpn/client.ovpn
+        read_only: true
+        bind:
+          create_host_path: false

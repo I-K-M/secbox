@@ -1,0 +1,7 @@
+# Effective raw-packet capabilities require root in this Docker profile.
+# Keep all other restrictions: this does not grant host root or privileged mode.
+services:
+  secbox:
+    user: "0:0"
+    cap_add:
+      - NET_RAW
