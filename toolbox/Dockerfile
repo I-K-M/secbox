@@ -1,4 +1,4 @@
-FROM golang:1.27.1-trixie@sha256:3b77fc618ec235a1ab412de7737f120dd507c57e8d87de4cbb7994fb94275ed5 AS go-tools
+FROM golang:1.27.1-trixie@sha256:8f58fd67ea075142d947a60e0caa4317746a55118d312f027793d382c7741734 AS go-tools
 
 # Verify module source through the Go checksum database and prevent automatic
 # downloads of a different compiler by a dependency's toolchain directive.
@@ -24,7 +24,7 @@ RUN git init /nikto \
     && cp /nikto/program/nikto.conf.default /nikto/program/nikto.conf \
     && sed -i 's/^UPDATES=yes/UPDATES=no/' /nikto/program/nikto.conf
 
-FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a
+FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
 
 LABEL org.opencontainers.image.title="Secbox" \
       org.opencontainers.image.description="Disposable security assessment toolbox" \
