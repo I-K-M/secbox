@@ -1,4 +1,4 @@
-FROM golang:1.27.1-trixie@sha256:3b77fc618ec235a1ab412de7737f120dd507c57e8d87de4cbb7994fb94275ed5 AS go-tools
+FROM golang:1.27.3-trixie@sha256:af1bfc2614ebb1dbd31af514b78740fd678850e76498762b425ecee4c5c6ea80 AS go-tools
 
 # Verify module source through the Go checksum database and prevent automatic
 # downloads of a different compiler by a dependency's toolchain directive.
